@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db, auth } from "./firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "firebase/firestore";
 
 const LOCATIONS = [
   "Main Entrance / Gate 1",
@@ -22,8 +22,26 @@ function PassengerDashboard() {
   const [location, setLocation] = useState("");
   const [trainNumber, setTrainNumber] = useState("");
   const [seats, setSeats] = useState(1);
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [activeRequest, setActiveRequest] = useState(null);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const q = query(
+      collection(db, "requests"),
+      where("passengerId", "==", auth.currentUser.uid),
+      where("status", "in", ["pending", "accepted"])
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        setActiveRequest({ id: doc.id, ...doc.data() });
+      } else {
+        setActiveRequest(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleRequest = async () => {
     if (!location || !trainNumber) {
@@ -40,23 +58,34 @@ function PassengerDashboard() {
         status: "pending",
         timestamp: serverTimestamp()
       });
-      setSubmitted(true);
     } catch (e) {
       setError(e.message);
     }
   };
 
-  if (submitted) {
+  if (activeRequest?.status === "pending") {
     return (
       <div style={{ maxWidth: "400px", margin: "100px auto", textAlign: "center" }}>
-        <h2>✅ Request Sent!</h2>
-        <p>A BOV driver will reach you at <strong>{location}</strong> shortly.</p>
-        <button
-          onClick={() => { setSubmitted(false); setLocation(""); setTrainNumber(""); }}
-          style={{ padding: "10px 20px", background: "blue", color: "white", border: "none", cursor: "pointer", marginTop: "20px" }}
-        >
-          Make Another Request
-        </button>
+        <h2>⏳ Waiting for a Driver...</h2>
+        <p>Your request has been sent to all nearby BOV drivers.</p>
+        <div style={{ border: "1px solid #444", borderRadius: "8px", padding: "15px", marginTop: "20px", textAlign: "left" }}>
+          <p><strong>Location:</strong> {activeRequest.location}</p>
+          <p><strong>Train Number:</strong> {activeRequest.trainNumber}</p>
+          <p><strong>Seats Needed:</strong> {activeRequest.seatsNeeded}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeRequest?.status === "accepted") {
+    return (
+      <div style={{ maxWidth: "400px", margin: "100px auto", textAlign: "center" }}>
+        <h2>🚗 Driver is on the way!</h2>
+        <p>A BOV driver has accepted your request and is heading to you.</p>
+        <div style={{ border: "1px solid green", borderRadius: "8px", padding: "15px", marginTop: "20px", textAlign: "left" }}>
+          <p><strong>Your Location:</strong> {activeRequest.location}</p>
+          <p><strong>Driver:</strong> {activeRequest.driverEmail}</p>
+        </div>
       </div>
     );
   }
