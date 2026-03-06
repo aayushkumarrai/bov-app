@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "./firebase";
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 const LOCATIONS = [
   "Main Entrance / Gate 1",
@@ -24,6 +26,7 @@ function PassengerDashboard() {
   const [seats, setSeats] = useState(1);
   const [error, setError] = useState("");
   const [activeRequest, setActiveRequest] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -63,6 +66,11 @@ function PassengerDashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/login");
+  };
+
   if (activeRequest?.status === "pending") {
     return (
       <div style={{ maxWidth: "400px", margin: "100px auto", textAlign: "center" }}>
@@ -92,6 +100,14 @@ function PassengerDashboard() {
 
   return (
     <div style={{ maxWidth: "400px", margin: "60px auto", textAlign: "center" }}>
+      <div style={{ textAlign: "right" }}>
+        <button
+          onClick={handleLogout}
+          style={{ padding: "6px 14px", background: "red", color: "white", border: "none", cursor: "pointer", borderRadius: "4px" }}
+        >
+          Logout
+        </button>
+      </div>
       <h2>Book a BOV</h2>
       <p style={{ color: "gray" }}>Logged in as: {auth.currentUser?.email}</p>
 
