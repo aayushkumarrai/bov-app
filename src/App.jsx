@@ -1,24 +1,18 @@
-import { db } from "./firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./Login";
+import Signup from "./Signup";
 
 function App() {
-  const testFirebase = async () => {
-    try {
-      await addDoc(collection(db, "test"), {
-        message: "Firebase is connected!",
-        time: new Date()
-      });
-      alert("✅ Firebase connected! Check Firestore console.");
-    } catch (e) {
-      alert("❌ Error: " + e.message);
-    }
-  };
-
   return (
-    <div>
-      <h1>BOV App</h1>
-      <button onClick={testFirebase}>Test Firebase Connection</button>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/signup" />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/passenger" element={<h1>Passenger Dashboard - Coming Soon</h1>} />
+        <Route path="/driver" element={<h1>Driver Dashboard - Coming Soon</h1>} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
