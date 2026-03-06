@@ -4,6 +4,8 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
 
+const ADMIN_EMAIL = "admin@bov.com";
+
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,6 +16,12 @@ function Login() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
+      if (user.email === ADMIN_EMAIL) {
+        navigate("/admin");
+        return;
+      }
+
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const role = userDoc.data().role;
       if (role === "passenger") navigate("/passenger");

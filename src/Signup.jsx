@@ -4,6 +4,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
 
+const ADMIN_EMAIL = "admin@bov.com";
+
 function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +14,10 @@ function Signup() {
   const navigate = useNavigate();
 
   const handleSignup = async () => {
+    if (email === ADMIN_EMAIL) {
+      setError("This email is reserved.");
+      return;
+    }
     if (!role) {
       setError("Please select a role.");
       return;
