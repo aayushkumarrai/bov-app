@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "./firebase";
-import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
@@ -22,8 +22,11 @@ const LOCATIONS = [
 
 function PassengerDashboard() {
   const [location, setLocation] = useState("");
-  const [trainNumber, setTrainNumber] = useState("");
+  const [journeyType, setJourneyType] = useState("");
+  const [ticketType, setTicketType] = useState("none");
+  const [ticketValue, setTicketValue] = useState("");
   const [seats, setSeats] = useState(1);
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [activeRequest, setActiveRequest] = useState(null);
   const navigate = useNavigate();
@@ -37,8 +40,8 @@ function PassengerDashboard() {
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
-        const doc = snapshot.docs[0];
-        setActiveRequest({ id: doc.id, ...doc.data() });
+        const d = snapshot.docs[0];
+        setActiveRequest({ id: d.id, ...d.data() });
       } else {
         setActiveRequest(null);
       }
@@ -47,23 +50,39 @@ function PassengerDashboard() {
   }, []);
 
   const handleRequest = async () => {
-    if (!location || !trainNumber) {
-      setError("Please fill all fields.");
+    if (!location || !journeyType) {
+      setError("Please fill all required fields.");
+      return;
+    }
+    if ((ticketType === "pnr" || ticketType === "train") && !ticketValue) {
+      setError("Please enter your ticket details.");
       return;
     }
     try {
       await addDoc(collection(db, "requests"), {
         passengerId: auth.currentUser.uid,
         passengerEmail: auth.currentUser.email,
-        location: location,
-        trainNumber: trainNumber,
+        location,
+        journeyType,
+        ticketType,
+        ticketValue,
         seatsNeeded: seats,
+        notes,
         status: "pending",
         timestamp: serverTimestamp()
       });
+      setError("");
     } catch (e) {
       setError(e.message);
     }
+  };
+
+  const handleCancel = async () => {
+    if (!activeRequest) return;
+    await updateDoc(doc(db, "requests", activeRequest.id), {
+      status: "cancelled"
+    });
+    setActiveRequest(null);
   };
 
   const handleLogout = async () => {
@@ -108,28 +127,51 @@ function PassengerDashboard() {
           <div style={{ fontSize: "56px", marginBottom: "16px" }}>⏳</div>
           <h2 style={{ fontSize: "24px", marginBottom: "8px" }}>Waiting for a Driver</h2>
           <p style={{ color: "#546e7a", marginBottom: "24px" }}>
-            Your request has been sent to all available BOV drivers nearby.
+            Your request has been sent to all available BOV drivers.
           </p>
           <div style={{
             background: "#ffffff",
             border: "1px solid #b0bec5",
             borderRadius: "10px",
             padding: "20px",
-            textAlign: "left"
+            textAlign: "left",
+            marginBottom: "20px"
           }}>
             <p style={{ margin: "8px 0", fontSize: "15px" }}>
               <span style={{ color: "#546e7a" }}>📍 Location: </span>
               <strong>{activeRequest.location}</strong>
             </p>
             <p style={{ margin: "8px 0", fontSize: "15px" }}>
-              <span style={{ color: "#546e7a" }}>🚂 Train: </span>
-              <strong>{activeRequest.trainNumber}</strong>
+              <span style={{ color: "#546e7a" }}>🚆 Journey: </span>
+              <strong>{activeRequest.journeyType === "departing" ? "Departing Hubballi" : "Arriving at Hubballi"}</strong>
             </p>
             <p style={{ margin: "8px 0", fontSize: "15px" }}>
               <span style={{ color: "#546e7a" }}>💺 Seats: </span>
               <strong>{activeRequest.seatsNeeded}</strong>
             </p>
+            {activeRequest.notes && (
+              <p style={{ margin: "8px 0", fontSize: "15px" }}>
+                <span style={{ color: "#546e7a" }}>📝 Notes: </span>
+                <strong>{activeRequest.notes}</strong>
+              </p>
+            )}
           </div>
+          <button
+            onClick={handleCancel}
+            style={{
+              width: "100%",
+              padding: "14px",
+              background: "#ffffff",
+              color: "#c62828",
+              border: "2px solid #c62828",
+              borderRadius: "6px",
+              fontSize: "15px",
+              fontWeight: "700",
+              cursor: "pointer"
+            }}
+          >
+            Cancel Request
+          </button>
         </div>
       </div>
     );
@@ -188,8 +230,17 @@ function PassengerDashboard() {
           </div>
 
           <div style={{ padding: "24px" }}>
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
-              YOUR CURRENT LOCATION
+            <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
+              JOURNEY TYPE *
+            </label>
+            <select value={journeyType} onChange={e => setJourneyType(e.target.value)}>
+              <option value="">-- Select journey type --</option>
+              <option value="departing">Departing from Hubballi</option>
+              <option value="arriving">Arriving at Hubballi</option>
+            </select>
+
+            <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
+              YOUR CURRENT LOCATION *
             </label>
             <select value={location} onChange={e => setLocation(e.target.value)}>
               <option value="">-- Select your location --</option>
@@ -198,17 +249,31 @@ function PassengerDashboard() {
               ))}
             </select>
 
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
-              TRAIN NUMBER
+            <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
+              TICKET TYPE
             </label>
-            <input
-              type="text"
-              placeholder="e.g. 16590"
-              value={trainNumber}
-              onChange={e => setTrainNumber(e.target.value)}
-            />
+            <select value={ticketType} onChange={e => { setTicketType(e.target.value); setTicketValue(""); }}>
+              <option value="none">No ticket / Not available</option>
+              <option value="pnr">PNR Number</option>
+              <option value="train">Train Number</option>
+              <option value="uts">UTS Ticket</option>
+            </select>
 
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
+            {(ticketType === "pnr" || ticketType === "train") && (
+              <>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
+                  {ticketType === "pnr" ? "ENTER PNR NUMBER" : "ENTER TRAIN NUMBER"}
+                </label>
+                <input
+                  type="text"
+                  placeholder={ticketType === "pnr" ? "e.g. 8714521369" : "e.g. 16590"}
+                  value={ticketValue}
+                  onChange={e => setTicketValue(e.target.value)}
+                />
+              </>
+            )}
+
+            <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
               SEATS NEEDED
             </label>
             <select value={seats} onChange={e => setSeats(Number(e.target.value))}>
@@ -216,6 +281,16 @@ function PassengerDashboard() {
                 <option key={n} value={n}>{n} {n === 1 ? "seat" : "seats"}</option>
               ))}
             </select>
+
+            <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#546e7a", marginBottom: "6px" }}>
+              SPECIAL NOTES (optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Wheelchair needed, heavy luggage, elderly passenger"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
 
             {error && (
               <div style={{

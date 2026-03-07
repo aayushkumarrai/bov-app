@@ -56,6 +56,13 @@ function DriverDashboard() {
     navigate("/login");
   };
 
+  const ticketLabel = (type, value) => {
+    if (type === "pnr") return `PNR: ${value}`;
+    if (type === "train") return `Train: ${value}`;
+    if (type === "uts") return "UTS Ticket";
+    return "No ticket";
+  };
+
   const headerBar = (
     <div style={{
       background: "#003580",
@@ -92,9 +99,7 @@ function DriverDashboard() {
         <div style={{ maxWidth: "480px", margin: "60px auto", padding: "0 20px", textAlign: "center" }}>
           <div style={{ fontSize: "56px", marginBottom: "16px" }}>🚗</div>
           <h2 style={{ fontSize: "24px", marginBottom: "8px" }}>On the way to passenger</h2>
-          <p style={{ color: "#546e7a", marginBottom: "24px" }}>
-            Please proceed to the location below.
-          </p>
+          <p style={{ color: "#546e7a", marginBottom: "24px" }}>Please proceed to the location below.</p>
           <div style={{
             background: "#ffffff",
             border: "2px solid #003580",
@@ -112,13 +117,23 @@ function DriverDashboard() {
               <strong>{acceptedRequest.location}</strong>
             </p>
             <p style={{ margin: "8px 0", fontSize: "15px" }}>
-              <span style={{ color: "#546e7a" }}>🚂 Train: </span>
-              <strong>{acceptedRequest.trainNumber}</strong>
+              <span style={{ color: "#546e7a" }}>🚆 Journey: </span>
+              <strong>{acceptedRequest.journeyType === "departing" ? "Departing Hubballi" : "Arriving at Hubballi"}</strong>
+            </p>
+            <p style={{ margin: "8px 0", fontSize: "15px" }}>
+              <span style={{ color: "#546e7a" }}>🎫 Ticket: </span>
+              <strong>{ticketLabel(acceptedRequest.ticketType, acceptedRequest.ticketValue)}</strong>
             </p>
             <p style={{ margin: "8px 0", fontSize: "15px" }}>
               <span style={{ color: "#546e7a" }}>💺 Seats: </span>
               <strong>{acceptedRequest.seatsNeeded}</strong>
             </p>
+            {acceptedRequest.notes && (
+              <p style={{ margin: "8px 0", fontSize: "15px", background: "#fff3e0", padding: "8px 12px", borderRadius: "6px" }}>
+                <span style={{ color: "#e65100" }}>📝 Note: </span>
+                <strong>{acceptedRequest.notes}</strong>
+              </p>
+            )}
           </div>
           <button
             onClick={completeRequest}
@@ -208,7 +223,12 @@ function DriverDashboard() {
                 <strong>{req.location}</strong>
               </p>
               <p style={{ margin: "8px 0", fontSize: "15px" }}>
-                <span style={{ color: "#546e7a" }}>🚂 Train: </span>{req.trainNumber}
+                <span style={{ color: "#546e7a" }}>🚆 Journey: </span>
+                {req.journeyType === "departing" ? "Departing Hubballi" : "Arriving at Hubballi"}
+              </p>
+              <p style={{ margin: "8px 0", fontSize: "15px" }}>
+                <span style={{ color: "#546e7a" }}>🎫 Ticket: </span>
+                {ticketLabel(req.ticketType, req.ticketValue)}
               </p>
               <p style={{ margin: "8px 0", fontSize: "15px" }}>
                 <span style={{ color: "#546e7a" }}>💺 Seats: </span>{req.seatsNeeded}
@@ -216,6 +236,11 @@ function DriverDashboard() {
               <p style={{ margin: "8px 0", fontSize: "14px", color: "#546e7a" }}>
                 👤 {req.passengerEmail}
               </p>
+              {req.notes && (
+                <p style={{ margin: "8px 0", fontSize: "14px", background: "#fff3e0", padding: "8px 12px", borderRadius: "6px" }}>
+                  <span style={{ color: "#e65100" }}>📝 </span>{req.notes}
+                </p>
+              )}
               <button
                 onClick={() => acceptRequest(req.id)}
                 style={{
